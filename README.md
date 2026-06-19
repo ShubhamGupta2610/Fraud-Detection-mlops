@@ -8,6 +8,13 @@
 ![SHAP](https://img.shields.io/badge/SHAP-Explainable_AI-red)
 ![Docker](https://img.shields.io/badge/Docker-Containerized-blue)
 ![MLOps](https://img.shields.io/badge/MLOps-Production-purple)
+![Status](https://img.shields.io/badge/Status-In_Progress-yellow)
+
+---
+
+# 📌 Project Status
+
+**This project is in the planning/build phase — it is not yet complete.** This README documents the architecture, scope, and learning goals as designed, and will be updated phase by phase as each part is actually built. See `Tracker.md` for live, dated progress and real numbers (no placeholder metrics are claimed anywhere in this repo until they're measured).
 
 ---
 
@@ -15,19 +22,19 @@
 
 Adaptive Fraud & Risk Scoring Engine is a production-inspired machine learning system designed to detect fraudulent financial transactions in real time.
 
-Unlike traditional fraud detection projects that stop at model training, this project covers the complete ML lifecycle:
+Unlike a typical fraud-detection portfolio notebook that stops at model training, this project is scoped to cover the complete ML lifecycle:
 
 * Real-time transaction scoring
 * Streaming feature engineering
-* Imbalanced learning
+* Imbalanced learning, done rigorously (not just "tried SMOTE")
 * Explainable AI using SHAP
 * Drift detection
 * Automated retraining pipelines
-* Load testing and scalability
+* Load testing and horizontal scalability
 * Monitoring dashboards
 * Production deployment practices
 
-The objective is to learn how modern fraud detection systems are designed, deployed, monitored, and continuously improved in real-world financial organizations.
+The objective is to learn — deeply, not just superficially — how modern fraud detection systems are designed, deployed, monitored, and continuously improved in real-world financial organizations, and to have the research notes and experiment logs to prove that understanding in an interview.
 
 ---
 
@@ -35,25 +42,40 @@ The objective is to learn how modern fraud detection systems are designed, deplo
 
 Fraud detection is one of the most challenging machine learning domains because:
 
-* Fraud is extremely rare (<1% of transactions)
-* Fraud patterns evolve continuously
-* False positives impact customer experience
+* Fraud is extremely rare (often <1% of transactions)
+* Fraud patterns evolve continuously as fraudsters adapt
+* False positives carry a real business cost (blocked legitimate customers)
 * Models must respond within milliseconds
-* Regulatory requirements often demand explainable decisions
+* Regulatory and compliance requirements often demand explainable decisions
 
-This project addresses these challenges through a combination of supervised learning, anomaly detection, explainability, and MLOps principles.
+This project addresses these challenges through a combination of supervised learning, unsupervised anomaly detection, explainability, cost-sensitive threshold selection, and MLOps principles — see `PRD.md` for the full problem statement and `research/01_fraud_domain.md` for the underlying domain notes.
 
 ---
 
 # 🎯 Project Goals
 
 * Detect fraudulent transactions in real time
-* Minimize false positives
-* Generate explainable risk scores
+* Minimize false positives without ignoring the cost of false negatives
+* Generate explainable risk scores, not black-box numbers
 * Monitor model performance in production
-* Detect data and concept drift
-* Automate retraining workflows
-* Build a scalable and production-ready architecture
+* Detect data and concept drift before they cause silent decay
+* Automate retraining workflows with a validation gate before promotion
+* Build a scalable, production-ready architecture — explicitly proven, not just claimed
+
+---
+
+# 📈 Scale & Performance Commitment
+
+> **The system is designed to scale to 10,000+ users while maintaining low-latency inference. Model performance improves over time through a feedback loop, drift monitoring, and scheduled retraining using newly collected labeled data.**
+
+This is two separate, separately-proven claims — they are never merged into one in this project:
+
+| Claim | Type | Proof |
+|---|---|---|
+| Latency holds steady at 10,000 concurrent users | Infrastructure engineering — stateless API, caching, connection pooling, horizontal scaling behind a load balancer | A real Locust/k6 load test comparing p99 latency at 10 vs. 10,000 simulated concurrent users, logged in `Tracker.md` |
+| Model accuracy improves as usage grows | ML/data engineering — driven by the feedback loop and scheduled retraining, **not** by request volume itself | Before/after PR-AUC across retraining runs, logged in `Tracker.md` |
+
+Full architecture for the scale claim is in `TechSpec.md` Section 6. No latency or scale number is stated anywhere in this repo without a corresponding logged measurement.
 
 ---
 
@@ -63,7 +85,10 @@ This project addresses these challenges through a combination of supervised lear
 Transaction Stream
         │
         ▼
-Feature Engineering
+Feature Engineering (real-time, sliding window)
+        │
+        ▼
+Load Balancer → Stateless API Replicas (FastAPI, async)
         │
         ▼
 XGBoost + Isolation Forest
@@ -75,7 +100,7 @@ Risk Scoring Engine
 SHAP Explainability
         │
         ▼
-Decision Engine
+Decision Engine (cost-curve threshold)
         │
         ▼
 Allow / Challenge / Block
@@ -87,53 +112,45 @@ Feedback Collection
 Drift Detection (PSI)
         │
         ▼
-Retraining Pipeline
+Retraining Pipeline (validate → promote)
+        │
+        ▼
+Dashboard (Streamlit) — visualizes every stage above
 ```
 
 ---
 
-# ⚙️ Core Features
+# ⚙️ Core Features (Planned for v1)
 
 ## Real-Time Risk Scoring
-
-* FastAPI-based prediction service
-* Fraud probability scoring
+* FastAPI-based prediction service, async, designed for horizontal scaling
+* Fraud probability scoring, calibrated (see `docs/calibration_analysis.md`)
 * Risk score (0–100)
-* Low-latency inference
+* Target: <100ms p99 latency, at both low load and 10,000 concurrent simulated users
 
-## Advanced Feature Engineering
+## Feature Engineering
 
-### Velocity Features
+**Velocity Features** — transactions per minute / hour / day, total amount per window
 
-* Transactions per minute
-* Transactions per hour
-* Transactions per day
+**Geo-Velocity Features** — impossible travel detection, location change analysis
 
-### Geo-Velocity Features
+**Behavioral Features** — spending deviation, time-of-day deviation, merchant novelty
 
-* Impossible travel detection
-* Location change analysis
+**Device Intelligence** — new device detection, IP/location change flags
 
-### Behavioral Features
-
-* Spending deviation
-* Time-of-day deviation
-* Merchant novelty
-
-### Device Intelligence
-
-* New device detection
-* IP/location changes
+Full formulas for every feature live in `docs/feature_dictionary.md` — kept as the single source of truth, updated the moment a formula changes.
 
 ---
 
 # 🤖 Machine Learning Models
 
-| Model               | Purpose                  |
-| ------------------- | ------------------------ |
-| Logistic Regression | Baseline Model           |
-| XGBoost             | Primary Fraud Classifier |
-| Isolation Forest    | Novel Fraud Detection    |
+| Model | Purpose |
+|---|---|
+| Logistic Regression | Baseline — establishes an honest floor before reaching for anything more complex |
+| XGBoost | Primary fraud classifier |
+| Isolation Forest | Unsupervised detector for novel fraud patterns with no labeled history |
+
+Full pros/cons and "why not Random Forest / why not a neural network" answers are in `docs/model_comparison.md`.
 
 ---
 
@@ -141,111 +158,70 @@ Retraining Pipeline
 
 The system uses SHAP (SHapley Additive exPlanations) to explain predictions.
 
-### Global Explanations
+**Global explanations** — which features drive fraud detection overall
+**Local explanations** — why one specific transaction was flagged
 
-Understand which features influence fraud detection overall.
+Example shape of a local explanation (illustrative, not yet measured):
 
-### Local Explanations
+| Feature | Contribution |
+|---|---|
+| New Device | +35% |
+| High Velocity | +25% |
+| Unusual Location | +20% |
+| High Amount | +12% |
 
-Understand why a specific transaction was flagged.
-
-Example:
-
-| Feature          | Contribution |
-| ---------------- | ------------ |
-| New Device       | +35%         |
-| High Velocity    | +25%         |
-| Unusual Location | +20%         |
-| High Amount      | +12%         |
+Deeper notes on how and why SHAP works here: `research/05_shap_notes.md`.
 
 ---
 
-# 📊 Machine Learning Concepts Covered
+# 📊 ML Concepts This Project Is Built to Cover
 
-This project is intentionally designed to cover real-world ML concepts:
-
-* Feature Engineering
-* Imbalanced Learning
-* Logistic Regression
-* XGBoost
-* Isolation Forest
+* Feature Engineering (real-time, sliding-window)
+* Imbalanced Learning (class weighting vs. SMOTE vs. threshold tuning, compared)
+* Logistic Regression, XGBoost, Isolation Forest
 * SHAP Explainability
-* Calibration
-* Threshold Optimization
-* Cost-Sensitive Learning
+* Probability Calibration (Platt scaling / isotonic regression, Brier score)
+* Cost-Sensitive Threshold Optimization
 * Data Leakage Prevention
-* Error Analysis
-* Drift Detection
+* Error Analysis (false positive/negative patterns, recall by fraud type)
+* Drift Detection (PSI)
 * Model Monitoring
+
+Each of these has a dedicated, actively-maintained notes file — see **Research & Learning Notes** below.
 
 ---
 
 # 🔄 MLOps Components
 
-## Drift Detection
+**Drift Detection** — PSI per feature, scheduled checks, alerting. *Deliberately gated to start only after modeling, SHAP, and the API are complete — see `ImplementationPlan.md` Phase 6 gate check. Built early on purpose, not by accident of getting distracted.*
 
-* Population Stability Index (PSI)
-* Feature distribution monitoring
-* Drift alerts
+**Retraining Pipeline** — feedback ingestion, scheduled or drift-triggered retraining, validation against the current model, promotion only if genuinely better.
 
-## Retraining Pipeline
-
-* Feedback ingestion
-* Scheduled retraining
-* Model validation
-* Safe model promotion
-
-## Monitoring
-
-* Latency
-* Throughput
-* Prediction distribution
-* Fraud detection metrics
+**Monitoring** — latency, throughput, prediction distribution, average risk score, live fraud rate, threshold drift over time.
 
 ---
 
 # 🚀 Production Engineering Concepts
 
-* Stateless API Architecture
-* Horizontal Scaling
+* Stateless API architecture
+* Horizontal scaling behind a load balancer
 * Async FastAPI
-* Connection Pooling
-* Caching Layer
-* Docker Containerization
-* CI/CD Pipelines
-* Load Testing
-* Monitoring & Alerting
+* Connection pooling (database + cache)
+* Caching layer for feature lookups
+* Docker containerization
+* CI/CD via GitHub Actions
+* Load testing (Locust / k6) — the actual evidence behind the 10K-user claim
+* Monitoring & alerting
 
 ---
 
 # 🛠️ Technology Stack
 
-## Backend
-
-* Python
-* FastAPI
-* Scikit-Learn
-* XGBoost
-* SHAP
-
-## Database
-
-* PostgreSQL
-* Supabase
-
-## Dashboard
-
-* Streamlit
-
-## Infrastructure
-
-* Docker
-* GitHub Actions
-
-## Testing
-
-* Locust
-* k6
+**Backend** — Python, FastAPI, scikit-learn, XGBoost, SHAP
+**Database** — PostgreSQL (Supabase), connection-pooled
+**Dashboard** — Streamlit
+**Infrastructure** — Docker, GitHub Actions
+**Load Testing** — Locust, k6
 
 ---
 
@@ -253,132 +229,122 @@ This project is intentionally designed to cover real-world ML concepts:
 
 ```text
 adaptive-fraud-risk-scoring-engine/
-
-├── api/
-├── dashboard/
-├── pipeline/
-├── data/
-├── docs/
 │
-├── research/
+├── api/                          # FastAPI service
+├── dashboard/                    # Streamlit app
+├── pipeline/                     # Feature engineering, training, retraining
+├── data/                         # Synthetic generator + benchmark dataset
+│
+├── docs/                         # Supporting analysis documents
+│   ├── feature_dictionary.md
+│   ├── model_comparison.md
+│   ├── data_leakage.md
+│   ├── error_analysis.md
+│   └── calibration_analysis.md
+│
+├── research/                     # Concept-by-concept learning notes
 │   ├── 01_fraud_domain.md
 │   ├── 02_feature_engineering.md
 │   ├── 03_imbalance_learning.md
 │   ├── 04_xgboost_notes.md
 │   ├── 05_shap_notes.md
 │   ├── 06_drift_detection.md
-│   ├── 07_system_design.md
-│   ├── calibration_analysis.md
-│   ├── data_leakage.md
-│   ├── error_analysis.md
-│   ├── feature_dictionary.md
-│   └── model_comparison.md
+│   └── 07_system_design.md
 │
-├── tests/
-├── load-tests/
-├── docker/
+├── tests/                        # Unit + integration tests
+├── load-tests/                   # Locust / k6 scripts
+├── docker/                       # Dockerfiles, docker-compose
 │
+├── PRD.md
+├── TechSpec.md
+├── AppFlow.md
+├── Design.md
+├── schema.md
+├── ImplementationPlan.md
+├── Rules.md
+├── Tracker.md
+├── experiment_log.csv
 ├── README.md
 ├── requirements.txt
-├── Tracker.md
 └── .gitignore
 ```
+
+**Note:** `docs/` and `research/` are deliberately separate. `research/` is concept-learning notes (in the builder's own words, with interview-ready Q&A). `docs/` is project-specific analysis artifacts (the actual feature list, the actual model comparison, the actual leakage findings). Keeping them apart avoids exactly the kind of folder-structure drift that makes a repo hard to navigate later.
 
 ---
 
 # 📚 Research & Learning Notes
 
-The repository includes dedicated learning notes covering:
+This repo includes dedicated, actively-maintained learning notes — not generated summaries, but the builder's own understanding, checked against interview-style questions at the bottom of each file:
 
-* Fraud Domain Knowledge
-* Feature Engineering
-* Imbalanced Learning
-* XGBoost
-* SHAP
-* Drift Detection
-* Data Leakage
-* Calibration
-* Error Analysis
-* System Design
+* `01_fraud_domain.md` — fraud patterns, the business cost trade-off, compliance reasoning
+* `02_feature_engineering.md` — sliding windows, velocity/geo/behavioral features
+* `03_imbalance_learning.md` — class weighting vs. SMOTE vs. threshold tuning
+* `04_xgboost_notes.md` — gradient boosting internals, why XGBoost over alternatives
+* `05_shap_notes.md` — how Shapley values work, why TreeExplainer
+* `06_drift_detection.md` — PSI math, data drift vs. concept drift
+* `07_system_design.md` — statelessness, caching, pooling, load balancing, async I/O
 
-The goal is not only to build a working project but also to deeply understand every concept involved.
+The goal isn't only a working project — it's being able to answer "why did you do X" from real understanding, not memory. See `Rules.md` Rule 16: these notes are written and personalized by the builder, not auto-generated.
 
 ---
 
 # 🗺️ Development Roadmap
 
-### Phase 1
+This roadmap is the single source of truth and matches `ImplementationPlan.md` exactly — no duplicate or conflicting phase list exists elsewhere in this repo.
 
-* Research & Planning
-* Fraud Domain Study
+| Phase | Focus | Status |
+|---|---|---|
+| 0 | Setup — repo structure, environment, database tables | Not started |
+| 1 | Data Foundations — benchmark dataset, synthetic generator | Not started |
+| 2 | Feature Engineering — velocity, geo-velocity, behavioral features, leakage checks | Not started |
+| 3 | Modeling — baseline, XGBoost, Isolation Forest, SHAP, calibration, error analysis | Not started |
+| 4 | API Service — async FastAPI, caching, pooling, built stateless from the start | Not started |
+| 5 | Dashboard — Streamlit, all panels including System Health | Not started |
+| 6 | Drift Monitoring & Retraining Loop *(gated — see ImplementationPlan.md)* | Not started |
+| 7 | Testing — unit + integration | Not started |
+| 8 | Containerization & Horizontal Scaling Setup | Not started |
+| 9 | Load Testing & Deployment — where the 10K-user claim gets proven | Not started |
+| 10 | Final Polish — README, demo video, documentation completeness check | Not started |
 
-### Phase 2
-
-* Synthetic Transaction Generator
-* Feature Engineering
-
-### Phase 3
-
-* Baseline Models
-* Logistic Regression
-
-### Phase 4
-
-* XGBoost Risk Scoring
-
-### Phase 5
-
-* SHAP Explainability
-
-### Phase 6
-
-* FastAPI Deployment
-
-### Phase 7
-
-* Drift Detection
-
-### Phase 8
-
-* Load Testing & Optimization
+Live, dated status updates: `Tracker.md`.
 
 ---
 
-# 🔮 Future Enhancements
+# 🔮 Future Enhancements (v2+, Explicitly Out of Scope for v1)
 
 * Kafka-based transaction streaming
-* Redis Feature Store
-* Kubernetes Deployment
-* Real-time Drift Monitoring
-* Ensemble Risk Models
-* LLM-powered Fraud Investigation Assistant
+* Redis feature store at larger scale
+* Kubernetes deployment
+* Multi-user auth and role-based permissions
+* A/B testing of model versions on live traffic
+* A formal model registry (e.g. MLflow)
+* LLM-powered fraud investigation assistant
+
+See `PRD.md` Section 4 for the full out-of-scope list and reasoning.
 
 ---
 
 # 🎓 Learning Outcomes
 
-By completing this project, you will gain hands-on experience in:
+By completing this project, the goal is hands-on, defensible-in-an-interview experience in:
 
-* Machine Learning Engineering
-* Feature Engineering
-* Fraud Analytics
-* Explainable AI
-* MLOps
-* Model Monitoring
-* Drift Detection
-* FastAPI
-* Docker
-* System Design
-* Production ML Workflows
+* Machine learning engineering under real constraints (imbalance, calibration, explainability)
+* Feature engineering on streaming/real-time data
+* Fraud analytics and domain reasoning
+* Explainable AI (SHAP)
+* MLOps — drift detection, automated retraining with a validation gate
+* Production system design — statelessness, caching, pooling, horizontal scaling
+* FastAPI, Docker, CI/CD
+* Load testing and honestly proving a scalability claim with real numbers
 
 ---
 
 # 👨‍💻 Author
 
 **Shubham Gupta**
-
 Machine Learning • AI Engineering • MLOps
 
 ---
 
-⭐ If you found this project interesting, consider giving it a star and following the development journey.
+⭐ This project is being built in the open, phase by phase. Follow `Tracker.md` for real progress, or check back as phases are completed.
