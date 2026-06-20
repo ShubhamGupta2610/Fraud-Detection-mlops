@@ -1,0 +1,6 @@
+date,experiment_id,model,features_version,imbalance_technique,threshold,precision,recall,pr_auc,brier_score,training_time_sec,notes
+,exp_001,Logistic Regression,v1,none,0.5,,,,,,baseline run
+,exp_002,XGBoost,v1,class_weighting,0.5,,,,,,
+,exp_003,XGBoost,v1,SMOTE,0.5,,,,,,
+,exp_004,XGBoost,v1,class_weighting,,,,,,,threshold tuned via cost curve - see TechSpec.md 5.4
+,exp_005,Isolation Forest,v1,unsupervised,n/a,,,,,,

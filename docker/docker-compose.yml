@@ -1,0 +1,38 @@
+# Local development stack: Postgres + the API service.
+# This is intentionally a single replica for now (Phase 0). Phase 8
+# is where this file grows multiple API replicas behind a load
+# balancer, per TechSpec.md Section 6.5 and ImplementationPlan.md
+# Phase 8 - not before, per Rules.md Rule 1 (don't build out of order).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fraud_user
+      POSTGRES_PASSWORD: fraud_pass
+      POSTGRES_DB: fraud_engine
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud_user -d fraud_engine"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://fraud_user:fraud_pass@postgres:5432/fraud_engine
+      ENVIRONMENT: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

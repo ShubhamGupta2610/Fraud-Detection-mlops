@@ -1,0 +1,21 @@
+# Slim base image, per Security.md Section 6 ("minimal container images") -
+# fewer packages installed means a smaller attack surface and a smaller
+# dependency-scan footprint.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies first, separately from app code, so Docker can
+# cache this layer and not reinstall everything on every code change.
+COPY api/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY api/app ./app
+
+# No secrets baked in here (Security.md Section 6) - DATABASE_URL etc.
+# are injected at container run time via environment variables /
+# docker-compose, never written into this image.
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

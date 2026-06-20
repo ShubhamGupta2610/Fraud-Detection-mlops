@@ -1,0 +1,15 @@
+# Phase 0 dependencies only. More are added phase-by-phase
+# (ImplementationPlan.md) rather than all at once, so it's always clear
+# which dependency was needed for which capability.
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+sqlalchemy==2.0.35
+psycopg2-binary==2.9.9
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+
+# Testing (Phase 7, included early so tests can start any time)
+pytest==8.3.3
+httpx==0.27.2
