@@ -317,7 +317,7 @@ This roadmap is the single source of truth and matches `ImplementationPlan.md` e
 
 | Phase | Focus | Status |
 |---|---|---|
-| 0 | Setup — repo structure, environment, database tables | Not started |
+| 0 | Setup — repo structure, environment, database tables | Start |
 | 1 | Data Foundations — benchmark dataset, synthetic generator | Not started |
 | 2 | Feature Engineering — velocity, geo-velocity, behavioral features, leakage checks | Not started |
 | 3 | Modeling — baseline, XGBoost, Isolation Forest, SHAP, calibration, error analysis | Not started |
