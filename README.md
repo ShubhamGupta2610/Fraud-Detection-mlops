@@ -215,6 +215,7 @@ Each of these has a dedicated, actively-maintained notes file — see **Research
 
 ---
 
+<<<<<<< HEAD
 # 🔒 Security
 
 Security is treated as a non-negotiable, from-day-one concern (`Rules.md` Rule 17), not a Phase 10 add-on. Full detail in `Security.md`, covering:
@@ -230,6 +231,8 @@ A pre-deployment security checklist (also in `Security.md`) is run before any pu
 
 ---
 
+=======
+>>>>>>> 014e4aac363df9c8df2426d90bf48aa933c3e642
 # 🛠️ Technology Stack
 
 **Backend** — Python, FastAPI, scikit-learn, XGBoost, SHAP
@@ -277,7 +280,10 @@ adaptive-fraud-risk-scoring-engine/
 ├── schema.md
 ├── ImplementationPlan.md
 ├── Rules.md
+<<<<<<< HEAD
 ├── Security.md
+=======
+>>>>>>> 014e4aac363df9c8df2426d90bf48aa933c3e642
 ├── Tracker.md
 ├── experiment_log.csv
 ├── README.md
