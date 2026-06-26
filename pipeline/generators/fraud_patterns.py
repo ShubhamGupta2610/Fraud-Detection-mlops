@@ -24,31 +24,16 @@ from typing import List
 
 from pipeline.generators.accounts import AccountProfile, MERCHANT_CATEGORIES
 from pipeline.generators.legitimate import RawTransaction
+from pipeline.geo_utils import haversine_km
 
 
 # Roughly the speed of a commercial flight, in km/h. Used by
-# impossible_travel below AND will be reused in Phase 2 as the actual
+# impossible_travel below AND reused in Phase 2 as the actual
 # geo_velocity feature threshold (feature_dictionary.md) - defining it
 # once, here, means the generator and the eventual detector agree on
 # what "impossible" means, which matters when we get to error analysis
 # in Phase 3 (docs/error_analysis.md).
 MAX_PLAUSIBLE_TRAVEL_SPEED_KMH = 900.0
-
-
-def _haversine_km(lat1, lng1, lat2, lng2) -> float:
-    """
-    Great-circle distance between two lat/lng points, in kilometers.
-    Reused identically in Phase 2's geo_velocity feature - defined once
-    here so the generator's notion of "distance" and the detector's
-    notion of "distance" can never silently drift apart.
-    """
-    import math
-    R = 6371.0
-    lat1r, lng1r, lat2r, lng2r = map(math.radians, [lat1, lng1, lat2, lng2])
-    dlat = lat2r - lat1r
-    dlng = lng2r - lng1r
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1r) * math.cos(lat2r) * math.sin(dlng / 2) ** 2
-    return 2 * R * math.asin(math.sqrt(a))
 
 
 def inject_card_testing(
@@ -244,7 +229,7 @@ def verify_impossible_travel_speed(first: RawTransaction, second: RawTransaction
     inject_impossible_travel() actually produces a speed above the
     threshold - proving the mechanism works, not just trusting it.
     """
-    distance_km = _haversine_km(
+    distance_km = haversine_km(
         first.location_lat, first.location_lng,
         second.location_lat, second.location_lng,
     )

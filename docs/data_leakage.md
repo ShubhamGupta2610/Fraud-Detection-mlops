@@ -36,7 +36,19 @@ Document anything you actually find and fix here — a documented leakage bug yo
 
 | Date | Leakage Found | How It Was Introduced | Fix Applied | Impact on PR-AUC (before/after fix) |
 |---|---|---|---|---|
-| | | | | |
+| 2026-06-22 | None found — checklist run explicitly against `pipeline/features/` (Phase 2) | N/A | N/A — see verification notes below | N/A (no model trained yet — Phase 3) |
+
+**Phase 2 checklist run — actual findings, not just "looks fine on inspection":**
+
+1. **Label leakage via the outcome itself** — Checked. `build_feature_vector()` in `pipeline/features/pipeline.py` never reads `transaction.is_fraud` or `transaction.fraud_type`. Verified by an automated test (`test_feature_vector_never_contains_label_fields` in `tests/test_features.py`) that asserts neither field, nor even the substring "fraud," appears in any feature key — not just spot-checked by eye.
+
+2. **Temporal leakage** — Checked, and this was the central design constraint of the whole phase, not an afterthought. `AccountHistoryStore.transactions_before()` enforces a strict `timestamp < at_time` boundary (never `<=`), and `pipeline.py`'s `run_feature_pipeline()` computes each transaction's features *before* adding that transaction to history. Both properties are covered by dedicated regression tests: `test_history_store_never_returns_future_transactions`, `test_history_store_excludes_exact_timestamp_match`, `test_pipeline_computes_features_before_adding_to_history`.
+
+3. **SMOTE-before-split leakage** — Not applicable yet; no train/test split or SMOTE exists until Phase 3. Flagged here as a reminder to re-check this specific item when Phase 3 begins.
+
+4. **Feature scaling leakage** — Not applicable yet; no scaling has been implemented (and per `research/04_xgboost_notes.md`, may not be needed at all for a tree-based model). Re-check if logistic regression's baseline ends up using a scaler.
+
+5. **Account-level leakage across train/test split** — Not applicable yet; no split exists until Phase 3. Flagged as a reminder: the same `account_id` must never appear in both train and test sets once that split is built, given Phase 2's heavy use of per-account rolling history.
 
 ## Interview-ready answers
 
@@ -44,4 +56,4 @@ Document anything you actually find and fix here — a documented leakage bug yo
 > Your answer here.
 
 **Q: Did you find any leakage in this project?**
-> Your answer here — either a real finding from the table above, or an honest "I checked X, Y, Z specifically and didn't find any, here's how I verified that."
+> Your answer here — Phase 2 specifically: no leakage found, but the temporal-ordering guarantee (strict `<` boundary, compute-before-add ordering) was the central design decision of the whole feature pipeline, verified by automated tests rather than just reasoned about.

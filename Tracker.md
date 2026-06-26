@@ -8,7 +8,7 @@ This file has two jobs: track build progress phase-by-phase, and serve as the ru
 |---|---|---|---|
 | 0 — Setup | Complete | 2026-06-20 | FastAPI skeleton, all 6 schema.md tables, /health confirms DB connectivity. Verified end-to-end against a local DB. |
 | 1 — Data Foundations | Complete | 2026-06-21 | Synthetic generator built: account population + legitimate history + 3 fraud patterns (card_testing, account_takeover, impossible_travel). Two real bugs found and fixed during verification — see Known Bottlenecks & Fixes below. 7 regression tests passing. |
-| 2 — Feature Engineering | Not started | | |
+| 2 — Feature Engineering | Complete | 2026-06-22 | Velocity, geo-velocity, behavioral deviation, and device features built in `pipeline/features/`. Strict point-in-time boundary enforced and tested. Full `docs/data_leakage.md` checklist run — no leakage found. 16 new tests passing (23 total across Phases 1-2). `haversine_km` promoted to a shared module so Phase 1's generator and Phase 2's detector can't drift apart. |
 | 3 — Modeling | Not started | | |
 | 4 — API Service | Not started | | |
 | 5 — Dashboard | Not started | | |
