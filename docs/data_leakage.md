@@ -37,6 +37,7 @@ Document anything you actually find and fix here — a documented leakage bug yo
 | Date | Leakage Found | How It Was Introduced | Fix Applied | Impact on PR-AUC (before/after fix) |
 |---|---|---|---|---|
 | 2026-06-22 | None found — checklist run explicitly against `pipeline/features/` (Phase 2) | N/A | N/A — see verification notes below | N/A (no model trained yet — Phase 3) |
+| 2026-06-30 | **Train/test split validity bug (temporal leakage's mirror image)** — Phase 1's generator placed every fraud event within the last 5 days of the entire generation window, so an 80/20 time-based split put 100% of fraud into the test set, leaving zero fraud examples for the model to learn from | `transaction_stream.py`'s `fraud_time = end_time - timedelta(days=rng.uniform(0, 5))` clustered all fraud near the end of the window regardless of dataset size | Changed fraud timing to spread across each account's own available history (`account_span_days`) instead of a fixed 5-day window near the end. Re-verified: train set now has 625 fraud examples, test set 634, with no overlap in time ranges. Added a regression test (`test_time_based_split_contains_fraud_in_both_halves`) | Could not have computed a real PR-AUC before this fix — the model had literally nothing to learn from. After the fix: PR-AUC 0.9617 (class-weighted XGBoost) |
 
 **Phase 2 checklist run — actual findings, not just "looks fine on inspection":**
 

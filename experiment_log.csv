@@ -1,6 +1,8 @@
 date,experiment_id,model,features_version,imbalance_technique,threshold,precision,recall,pr_auc,brier_score,training_time_sec,notes
-,exp_001,Logistic Regression,v1,none,0.5,,,,,,baseline run
-,exp_002,XGBoost,v1,class_weighting,0.5,,,,,,
-,exp_003,XGBoost,v1,SMOTE,0.5,,,,,,
-,exp_004,XGBoost,v1,class_weighting,,,,,,,threshold tuned via cost curve - see TechSpec.md 5.4
-,exp_005,Isolation Forest,v1,unsupervised,n/a,,,,,,
+2026-06-30,exp_001,Logistic Regression,v1,class_weight=balanced,0.5,0.1556,0.9732,0.8448,0.0227,~5,baseline - established the floor; naive 'always legitimate' accuracy on this test set is 99.22% with 0% recall
+2026-06-30,exp_002,XGBoost,v1,none (plain),0.5,0.9706,0.9369,0.9544,0.0007,~8,included specifically as the no-imbalance-handling comparison point
+2026-06-30,exp_003,XGBoost,v1,class_weighting (scale_pos_weight=521.61),0.5,0.9631,0.9464,0.9617,0.0009,~9,CHOSEN approach - best recall, simpler than SMOTE for a near-identical PR-AUC
+2026-06-30,exp_004,XGBoost,v1,SMOTE (train size 652008 after resampling),0.5,0.9598,0.9416,0.9625,0.0007,~15,highest PR-AUC by a margin of 0.0008 over class_weighting - not worth the added training-set size/synthetic-point risk for this small a gain
+2026-06-30,exp_005,XGBoost (class_weighting),v1,class_weighting,0.12 (cost-optimal),0.9601,0.9495,0.9617,n/a,n/a,threshold tuned via cost curve - see TechSpec.md 5.4; saved $650 (5.2%) vs default 0.5 threshold on this test set
+2026-06-30,exp_006,Isolation Forest,v1,unsupervised (contamination=0.0019),n/a,n/a,n/a,0.8097,n/a,standalone PR-AUC weaker than supervised XGBoost as expected; caught 3/34 (8.8%) of XGBoost's false negatives - real but modest added value
+2026-06-30,exp_007,XGBoost (class_weighting) + isotonic calibration,v1,class_weighting,0.5,n/a,n/a,n/a,0.000671,~10,Brier score improved from 0.000863 (raw) to 0.000671 (calibrated) - a ~22% reduction; FINAL saved model (pipeline/training/artifacts/)

@@ -24,13 +24,17 @@ A risk score is only meaningful if it's calibrated. "Risk score = 80" should mea
 
 | Model Version | Brier Score | Notes |
 |---|---|---|
-| Raw XGBoost output | | |
-| After Platt scaling | | |
-| After isotonic regression | | |
+| Raw XGBoost output | 0.000863 | Measured on the real time-based test set (class-weighted XGBoost) |
+| After Platt scaling | (not run — isotonic chosen directly, see reasoning below) | |
+| After isotonic regression | 0.000671 | A ~22% reduction vs. raw — calibration genuinely helped |
+
+**Implementation note worth knowing:** scikit-learn 1.6+ removed `CalibratedClassifierCV`'s `cv="prefit"` option, replacing it with wrapping the already-fitted model in `sklearn.frozen.FrozenEstimator` first. This was discovered by actually running the code, not by reading documentation in isolation — a good example of why "I read the docs" and "I ran it" are different levels of verification.
+
+**Calibration curve finding:** with only 5 quantile bins (reduced from a default of 10 — 10 bins mostly collapsed to `predicted=0.0000, actual=0.0000` given how extreme the class imbalance is), the raw model's largest bin showed predicted=0.0497 vs actual=0.0389 (gap of 0.0108) — reasonably close, but not perfect. After isotonic calibration, the curve collapsed to just 2 distinct bins (predicted≈0.0000/actual≈0.0004, and predicted≈0.9947/actual≈0.9617) — a known behavior of isotonic regression's step-function nature on a small positive-class count, not a bug.
 
 ## 4. Which calibration method did you choose, and why
 
-> Document your actual decision here, backed by the table above.
+**Isotonic regression**, fit on a held-out 20% slice of the *training* set (never the test set, to avoid leaking test information into the calibration step itself — the same leakage principle from `docs/data_leakage.md` applied specifically to calibration). Chosen over Platt scaling because the training set is large enough (326,629 rows, 625 positive) that isotonic's higher data requirement isn't a practical concern, and isotonic doesn't assume the miscalibration is sigmoid-shaped — a more flexible, fewer-assumptions choice given we had the data to support it.
 
 ## 5. Why this matters for the cost curve specifically
 

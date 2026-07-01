@@ -115,10 +115,26 @@ def generate_dataset(
         if account.account_id in fraud_account_ids:
             pattern = pattern_assignment[account.account_id]
 
-            # Inject the fraud event at a random point within the
-            # generation window, anchored near the account's own history
-            # so it doesn't always land suspiciously at the very end.
-            fraud_time = end_time - timedelta(days=rng.uniform(0, 5))
+            # Inject the fraud event at a random point spread across the
+            # account's own history window, NOT clustered near end_time.
+            #
+            # CORRECTNESS NOTE (found during Phase 3 verification, not
+            # by inspection): the original version always placed
+            # fraud_time within the last 5 days of the entire dataset
+            # (`end_time - timedelta(days=rng.uniform(0, 5))`). That's
+            # fine for Phase 1/2's purposes in isolation, but it
+            # silently broke Phase 3's time-based train/test split
+            # (docs/data_leakage.md Section 2): with a 6-month dataset
+            # split 80/20 by time, EVERY fraud example landed in the
+            # last 20% (test set), leaving zero fraud examples to train
+            # on. A model can't learn what it never sees. Spreading
+            # fraud events across the account's own available history
+            # (bounded by how much history that account actually has)
+            # fixes this while still respecting each account's own
+            # account_age_days - we're not inventing history that
+            # wouldn't exist for that account.
+            account_span_days = min(account.account_age_days, 180)
+            fraud_time = end_time - timedelta(days=rng.uniform(0, max(1, account_span_days)))
 
             injector = FRAUD_PATTERN_INJECTORS[pattern]
             fraud_transactions = injector(account, fraud_time, rng)
