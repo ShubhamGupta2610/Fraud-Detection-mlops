@@ -1,51 +1,54 @@
 """
-Phase 0 entrypoint. Deliberately minimal - per ImplementationPlan.md,
-Phase 0's only job is "empty-but-running skeleton with database
-connectivity confirmed." Scoring logic, features, models: none of that
-belongs here yet (Rules.md Rule 1 - don't build out of order).
+Phase 4 entrypoint — wires the model loader, feature cache, and
+scoring router into the FastAPI app that Phase 0 created.
 
-Built async from the very first line, per TechSpec.md Section 2 and
-ImplementationPlan.md Phase 4's note that retrofitting async later is
-much harder than starting with it - even though Phase 0 doesn't need
-async yet, the app object itself needs to be the async-capable kind
-from day one.
+The app object itself (async-capable, created in Phase 0) is unchanged.
+Phase 4 adds:
+  1. A lifespan handler that loads the model at startup
+  2. The /score, /feedback, /metrics, /drift-status, /retrain endpoints
+     via the scoring router
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from app.db.session import get_db, engine, Base
 
-# Importing models so Base.metadata knows about every table before
-# create_all() runs. Importing for side-effect, not direct use here.
-from app.models import transaction, operations  # noqa: F401
+from app.db.session import get_db, engine, Base
+from app.models import transaction, operations  # noqa: F401 - registers tables with Base.metadata
+from app.core.model_loader import load_model_and_explainer
+from app.routers import scoring
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Startup: create tables + load the model.
+    Shutdown: nothing needed (model is in memory, GC handles it).
+
+    Using the modern lifespan context manager rather than the
+    deprecated @app.on_event("startup") decorator from Phase 0 -
+    FastAPI's own docs recommend this pattern as of 0.93+.
+    """
+    Base.metadata.create_all(bind=engine)
+    load_model_and_explainer(app)
+    yield
+
 
 app = FastAPI(
     title="Adaptive Fraud & Risk Scoring Engine",
-    version="0.1.0-phase0",
+    version="0.4.0-phase4",
+    lifespan=lifespan,
 )
 
-
-@app.on_event("startup")
-def on_startup():
-    """
-    Creates all tables if they don't exist yet. Fine for local dev;
-    a real migration tool (Alembic) is the correct upgrade before this
-    ever touches a shared/production database - noting that now so it
-    isn't forgotten later, rather than discovering it the hard way.
-    """
-    Base.metadata.create_all(bind=engine)
+app.include_router(scoring.router, tags=["Scoring"])
 
 
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
     """
-    Per AppFlow.md Section 1 and TechSpec.md Section 5 - this is what
-    a load balancer will poll later to know if a replica is healthy.
-    Right now it does the simplest meaningful check: can we actually
-    reach the database. Per Security.md Section 6, this must never leak
-    internal detail (stack traces, connection strings) - so on failure
-    it returns a flat "unhealthy" status, nothing more specific.
+    Load-balancer health check - per AppFlow.md and Security.md Section 6.
+    Never leaks internal details on failure.
     """
     try:
         db.execute(text("SELECT 1"))
@@ -56,6 +59,7 @@ def health_check(db: Session = Depends(get_db)):
     return {
         "status": "ok",
         "database": db_status,
+        "model_version": getattr(app.state, "model_version", "not_loaded"),
     }
 
 
@@ -63,6 +67,7 @@ def health_check(db: Session = Depends(get_db)):
 def root():
     return {
         "service": "Adaptive Fraud & Risk Scoring Engine",
-        "phase": "0 - setup",
+        "phase": "4 - scoring API",
         "docs": "/docs",
+        "endpoints": ["/score", "/feedback", "/metrics", "/drift-status", "/retrain", "/health"],
     }
